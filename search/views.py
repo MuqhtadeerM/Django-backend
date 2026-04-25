@@ -107,3 +107,53 @@ class ProductSearchView(APIView):
         cache.set(cache_key, response_data, timeout=300)
 
         return Response(response_data)
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Q, Case, When, IntegerField
+from django.core.cache import cache
+from products.models import Product
+
+
+class ProductSuggestView(APIView):
+    def get(self, request):
+        query = request.GET.get("q", "").strip()
+
+        # 🔹 Minimum 3 characters required
+        if len(query) < 3:
+            return Response(
+                {"error": "Minimum 3 characters required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 🔹 Cache key
+        cache_key = f"search:{query}:{category}:{min_price}:{max_price}:{store_id}:{in_stock}:{sort}:{page}:{limit}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
+        # 🔹 Prefix priority (IMPORTANT requirement)
+        suggestions = (
+            Product.objects
+            .filter(title__icontains=query)
+            .annotate(
+                priority=Case(
+                    When(title__istartswith=query, then=0),  # prefix match first
+                    default=1,
+                    output_field=IntegerField()
+                )
+            )
+            .order_by("priority", "title")
+            .values_list("title", flat=True)
+            .distinct()[:10]
+        )
+
+        result = list(suggestions)
+
+        # 🔹 Cache for fast response
+        cache.set(cache_key, result, timeout=300)
+
+        return Response(result, status=status.HTTP_200_OK)

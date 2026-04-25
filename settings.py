@@ -1,10 +1,12 @@
 INSTALLED_APPS = [
     ...
+    'core',
     'rest_framework',
     'products',
     'stores',
     'orders',
     'search',
+   
 ]
 
 CACHES = {
