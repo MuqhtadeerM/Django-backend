@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'stores',
     'orders',
     'search',
+    "core",
 ]
 
 MIDDLEWARE = [
@@ -81,12 +83,26 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+USE_DOCKER = os.getenv("USE_DOCKER", "False") == "True"
+
+if USE_DOCKER:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'aforro',
+            'USER': 'postgres',
+            'PASSWORD': 'postgres',
+            'HOST': 'db',
+            'PORT': 5432,
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -127,14 +143,19 @@ STATIC_URL = 'static/'
 
 
 # 🔹 Redis Cache
+REDIS_HOST = "redis" if USE_DOCKER else "127.0.0.1"
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": f"redis://{REDIS_HOST}:6379/1",
     }
 }
 
-# 🔹 Celery Config
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379/0"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
+
+# Optional but recommended
+CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:6379/0"
